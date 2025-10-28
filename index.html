@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>RuangCurhat | Curhat Anonim & Dukungan Hangat</title>
+
+  <link rel="stylesheet" href="style.css" />
+
+  <!-- Toastify -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
+
+  <!-- Animasi transisi -->
+  <style>
+    body.page-enter { transform: translateX(20px); opacity: 0; transition: transform .32s ease, opacity .32s ease; }
+    body.page-enter.page-ready { transform: translateX(0); opacity: 1; }
+    body.page-exit { transition: transform .32s ease, opacity .32s ease; }
+    body.page-exit.slide-left { transform: translateX(-24px); opacity: 0; }
+    body.page-exit.slide-right { transform: translateX(24px); opacity: 0; }
+    .page-wrapper { min-height: 60vh; }
+  </style>
+</head>
+<body class="page-enter">
+
+  <!-- NAVBAR -->
+  <nav class="nav">
+    <div class="logo">
+      <div class="dot">RC</div>
+      <span>RuangCurhat</span>
+    </div>
+    <div class="nav-right">
+      <button class="theme-toggle" title="Ganti Mode">🌙</button>
+      <button class="hamburger">☰</button>
+      <div class="menu">
+        <a href="feed.html" data-direction="left">💬 Feed Curhat</a>
+        <a href="mycurhat.html" data-direction="left">📜 Curhatan Saya</a>
+        <a href="profil.html" data-direction="left">⚙️ Profil Anonim</a>
+        <a href="#tentang" data-direction="none">🔔 Tentang</a>
+      </div>
+    </div>
+  </nav>
+
+  <div class="page-wrapper">
+    <!-- HERO -->
+    <section class="hero">
+      <h1>Tempat aman untuk berbagi cerita tanpa takut dihakimi</h1>
+      <p>Curhat kapan saja, di mana saja. Anonim, jujur, dan didengar dengan hangat.</p>
+      <a href="#formCurhat" class="btn">Mulai Curhat Sekarang</a>
+    </section>
+
+    <!-- FORM CURHAT -->
+    <section id="formCurhat" class="curhat-form">
+      <h2>Tulis Curhatanmu</h2>
+      <form id="formCurhatForm">
+        <select id="kategori" required>
+          <option value="" disabled selected>-- Pilih kategori --</option>
+          <option value="Cinta">Cinta</option>
+          <option value="Keluarga">Keluarga</option>
+          <option value="Pekerjaan">Pekerjaan</option>
+          <option value="Sekolah">Sekolah</option>
+          <option value="Lainnya">Lainnya</option>
+        </select>
+
+        <input type="text" id="nama" placeholder="Nama samaran (opsional)" />
+        <textarea id="isi" placeholder="Tulis curhatanmu di sini..." required></textarea>
+        <button type="submit" class="send-btn">Kirim Curhatan 💌</button>
+      </form>
+    </section>
+
+    <!-- Tentang -->
+    <section id="tentang" style="padding:40px 5%;max-width:700px;margin:auto;text-align:center;">
+      <h3>Tentang RuangCurhat</h3>
+      <p style="color:var(--muted);margin-top:8px;">
+        RuangCurhat adalah ruang aman untuk berbagi cerita tanpa identitas.
+        Kamu bisa bercerita, memberi dukungan, dan didengar tanpa dihakimi 🌷
+      </p>
+    </section>
+  </div>
+
+  <footer>RuangCurhat © 2025</footer>
+
+  <!-- === NAVIGATION & THEME TOGGLE === -->
+  <script>
+    window.addEventListener('DOMContentLoaded', () => {
+      requestAnimationFrame(() => document.body.classList.add('page-ready'));
+    });
+
+    // === DARK MODE (persistent) ===
+    const toggle = document.querySelector('.theme-toggle');
+    const savedTheme = localStorage.getItem('theme');
+    if (savedTheme === 'dark') {
+      document.body.classList.add('dark');
+      toggle.textContent = '☀️';
+    }
+    toggle.addEventListener('click', () => {
+      document.body.classList.toggle('dark');
+      const dark = document.body.classList.contains('dark');
+      toggle.textContent = dark ? '☀️' : '🌙';
+      localStorage.setItem('theme', dark ? 'dark' : 'light');
+    });
+
+    // === HAMBURGER MENU ===
+    const hamburger = document.querySelector('.hamburger');
+    const menu = document.querySelector('.menu');
+    hamburger.addEventListener('click', () => menu.classList.toggle('active'));
+
+    // === PAGE SLIDE TRANSITIONS ===
+    document.querySelectorAll('.menu a, a[href$=".html"]').forEach(link => {
+      link.addEventListener('click', e => {
+        const href = link.getAttribute('href');
+        if (!href || href.startsWith('#')) return;
+        e.preventDefault();
+        const dir = link.dataset.direction || 'left';
+        document.body.classList.add('page-exit');
+        if (dir === 'left') document.body.classList.add('slide-left');
+        if (dir === 'right') document.body.classList.add('slide-right');
+        setTimeout(() => window.location.href = href, 280);
+      });
+    });
+  </script>
+
+  <!-- === APP LOGIC === -->
+  <script type="module" src="script.js"></script>
+</body>
+</html>
