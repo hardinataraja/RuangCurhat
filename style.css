@@ -553,3 +553,27 @@ body.dark .bottom-nav .add-btn {
   cursor: pointer;
   color: var(--accent);
 }
+
+.comment-item {
+  background: rgba(0,0,0,0.03);
+  border-radius: 8px;
+  padding: 8px 10px;
+  margin-top: 6px;
+  font-size: 0.9rem;
+}
+
+.lihat-semua {
+  background: none;
+  border: none;
+  color: var(--accent);
+  font-weight: 600;
+  cursor: pointer;
+  display: block;
+  margin: 8px auto;
+  transition: opacity 0.2s;
+}
+
+.lihat-semua:hover {
+  opacity: 0.8;
+  text-decoration: underline;
+}

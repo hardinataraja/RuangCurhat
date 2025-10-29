@@ -1,13 +1,14 @@
-// ===== profil.js (Menyimpan profil & kirim curhatan tertunda) =====
-import {
-  initializeApp
-} from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
+// === profil.js ===
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
 import {
   getFirestore,
   collection,
-  addDoc
+  addDoc,
+  setDoc,
+  doc
 } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 
+// === Konfigurasi Firebase RuangCurhat ===
 const firebaseConfig = {
   apiKey: "AIzaSyBIdM2v8g49FQPFckd7vtP_fx0JnXjdxJQ",
   authDomain: "curhat-online-56d74.firebaseapp.com",
@@ -17,107 +18,97 @@ const firebaseConfig = {
   appId: "1:284415050305:web:5ef67cb1cfb768cc95bcc0",
   measurementId: "G-L9KP05K69F"
 };
+
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
-const emojis = ["🌻","🧸","☁️","🦋","💫","🍃","💖","🌷","🌈","🐚","🫶","🌼","🪷","🐰","🕊️","⭐","🐨","🍀"];
-const grid = document.getElementById("emojiGrid");
-const inputNama = document.getElementById("namaSamaran");
-const saveBtn = document.getElementById("saveProfile");
+// === Fungsi toast ===
+function showToast(text, color = "linear-gradient(90deg,#7b5be4,#a78bfa)") {
+  Toastify({
+    text,
+    duration: 3000,
+    gravity: "top",
+    position: "center",
+    style: { background: color, borderRadius: "10px" },
+  }).showToast();
+}
+
+// === Daftar emoji pilihan ===
+const emojis = ["🐨","🦊","🐼","🐸","🐧","🐰","🐻","🐱","🐶","🦁","🐹","🐯","🐮","🐷","🐤","🦄","🐙","🐢","🐥","🐿️"];
+
+const emojiGrid = document.getElementById("emojiGrid");
 let selectedEmoji = null;
 
-// Generate grid emoji pastel
-emojis.forEach((emoji, i) => {
+// tampilkan pilihan emoji
+emojis.forEach((em, i) => {
   const div = document.createElement("div");
   div.className = `emoji-item pastel-${(i % 8) + 1}`;
-  div.textContent = emoji;
+  div.textContent = em;
   div.addEventListener("click", () => {
     document.querySelectorAll(".emoji-item").forEach(e => e.classList.remove("selected"));
     div.classList.add("selected");
-    selectedEmoji = emoji;
+    selectedEmoji = em;
   });
-  grid.appendChild(div);
+  emojiGrid.appendChild(div);
 });
 
-// Jika sudah ada profil tersimpan
-const savedProfile = JSON.parse(localStorage.getItem("profile") || "null");
-if (savedProfile) {
-  inputNama.value = savedProfile.nama || "";
-  selectedEmoji = savedProfile.emoji || null;
-  if (selectedEmoji) {
-    const found = [...document.querySelectorAll(".emoji-item")].find(e => e.textContent === selectedEmoji);
-    if (found) found.classList.add("selected");
+// === Fungsi buat profil anonim ===
+async function buatProfil(nama, emoji) {
+  const id = Date.now().toString(36);
+  const profile = { id, nama, emoji };
+  localStorage.setItem("profile", JSON.stringify(profile));
+
+  await setDoc(doc(db, "users", id), {
+    nama,
+    emoji,
+    lastActive: new Date().toISOString(),
+  });
+
+  return profile;
+}
+
+// === Kirim curhatan pending jika ada ===
+async function kirimPendingJikaAda(profile) {
+  const pending = JSON.parse(sessionStorage.getItem("pendingCurhat") || "null");
+  if (!pending) return;
+
+  try {
+    const { kategori, isi, waktu } = pending;
+    const docRef = await addDoc(collection(db, "curhatan"), {
+      nama: profile.nama || "Anonim",
+      avatar: profile.emoji || "💬",
+      kategori,
+      isi,
+      likes: 0,
+      comments: 0,
+      waktu,
+      lastActive: new Date().toISOString(),
+    });
+
+    // simpan ke curhatanSaya di localStorage
+    const saved = JSON.parse(localStorage.getItem("curhatanSaya") || "[]");
+    saved.unshift(docRef.id);
+    localStorage.setItem("curhatanSaya", JSON.stringify(saved));
+
+    sessionStorage.removeItem("pendingCurhat");
+    showToast("Curhatanmu berhasil dikirim 💌");
+    setTimeout(() => (window.location.href = "feed.html"), 1500);
+  } catch (err) {
+    console.error("Gagal kirim curhatan pending:", err);
+    showToast("Gagal mengirim curhatan 😢", "#f87171");
   }
 }
 
-// Simpan profil baru
-saveBtn.addEventListener("click", async () => {
-  const nama = inputNama.value.trim();
-  if (!selectedEmoji) {
-    Toastify({
-      text: "Pilih emoji avatar dulu ya 🌸",
-      duration: 2500,
-      gravity: "top",
-      position: "center",
-      style: { background: "linear-gradient(90deg,#f9a8d4,#fbcfe8)" },
-    }).showToast();
-    return;
-  }
+// === Saat klik tombol Simpan Profil ===
+document.getElementById("saveProfile").addEventListener("click", async () => {
+  const nama = document.getElementById("namaSamaran").value.trim() || "Anonim";
+  const emoji = selectedEmoji || "💬";
 
-  const anonId = "anon-" + Math.random().toString(36).substring(2, 10);
-  const profile = { id: anonId, nama, emoji: selectedEmoji };
-  localStorage.setItem("profile", JSON.stringify(profile));
-
-  Toastify({
-    text: "Profil anonim disimpan 💖",
-    duration: 2000,
-    gravity: "top",
-    position: "center",
-    style: { background: "linear-gradient(90deg,#7b5be4,#a78bfa)" },
-  }).showToast();
-
-  // === CEK APAKAH ADA CURHATAN TERTUNDA ===
-  const pending = JSON.parse(sessionStorage.getItem("pendingCurhat") || "null");
-  if (pending) {
-    try {
-      await addDoc(collection(db, "curhatan"), {
-        nama: nama || "Anonim",
-        kategori: pending.kategori,
-        isi: pending.isi,
-        avatar: selectedEmoji,
-        likes: 0,
-        comments: 0,
-        waktu: pending.waktu,
-        lastActive: new Date().toISOString(),
-      });
-
-      // simpan juga ke curhatanSaya
-      const saved = JSON.parse(localStorage.getItem("curhatanSaya") || "[]");
-      saved.unshift(pending.isi.slice(0, 20)); // hanya untuk referensi sederhana
-      localStorage.setItem("curhatanSaya", JSON.stringify(saved));
-
-      sessionStorage.removeItem("pendingCurhat");
-      Toastify({
-        text: "Curhatanmu berhasil dikirim 💌",
-        duration: 2500,
-        gravity: "top",
-        position: "center",
-        style: { background: "linear-gradient(90deg,#7b5be4,#a78bfa)" },
-      }).showToast();
-
-      setTimeout(() => (window.location.href = "feed.html"), 1200);
-    } catch (err) {
-      console.error("Gagal kirim curhat tertunda:", err);
-      Toastify({
-        text: "Profil tersimpan, tapi curhatan belum terkirim 😢",
-        duration: 2500,
-        gravity: "top",
-        position: "center",
-        style: { background: "#f87171" },
-      }).showToast();
-      setTimeout(() => (window.location.href = "feed.html"), 1500);
-    }
-  } else {
-    setTimeout(() => (window.location.href = "index.html"), 1000);
-  }
+  const profile = await buatProfil(nama, emoji);
+  showToast("Profil anonim disimpan 🎭");
+  await kirimPendingJikaAda(profile);
 });
+
+// === Jika user sudah punya profil tapi masih ada curhatan pending ===
+const existing = JSON.parse(localStorage.getItem("profile") || "null");
+if (existing) kirimPendingJikaAda(existing);
