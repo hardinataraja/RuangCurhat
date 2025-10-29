@@ -24,11 +24,11 @@ const firebaseConfig = {
   measurementId: "G-L9KP05K69F"
 };
 
-// Init Firebase
+// === Init Firebase ===
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
-// Safe text
+// === Helper ===
 function safe(t) {
   const d = document.createElement("div");
   d.textContent = t;
@@ -36,7 +36,7 @@ function safe(t) {
 }
 
 // ============================
-// 🔥 REALTIME FEED
+// 🔥 REALTIME FEED TANPA KEDIP
 // ============================
 function loadFeed() {
   const feed = document.getElementById("feed");
@@ -45,41 +45,62 @@ function loadFeed() {
   const q = query(collection(db, "curhatan"), orderBy("lastActive", "desc"));
 
   onSnapshot(q, (snapshot) => {
-    feed.innerHTML = "";
-    snapshot.forEach((docSnap) => {
-      const d = { id: docSnap.id, ...docSnap.data() };
+    // Saat pertama kali load, hapus loading
+    if (feed.innerHTML.includes("Memuat")) feed.innerHTML = "";
 
-      const card = document.createElement("div");
-      card.className = "post";
-      card.innerHTML = `
-        <div class="post-header">
-          <div class="avatar-emoji">${safe(d.avatar || "🙂")}</div>
-          <div class="meta">
-            <strong>${safe(d.nama || "Anonim")}</strong> · ${safe(d.kategori || "-")}
+    snapshot.docChanges().forEach((change) => {
+      const d = { id: change.doc.id, ...change.doc.data() };
+
+      if (change.type === "added") {
+        // === Buat elemen baru ===
+        const card = document.createElement("div");
+        card.className = "post";
+        card.id = `post-${d.id}`;
+        card.innerHTML = `
+          <div class="post-header">
+            <div class="avatar-emoji">${safe(d.avatar || "🙂")}</div>
+            <div class="meta">
+              <strong>${safe(d.nama || "Anonim")}</strong> · ${safe(d.kategori || "-")}
+            </div>
           </div>
-        </div>
 
-        <div class="post-body">
-          <p>${safe(d.isi)}</p>
-        </div>
+          <div class="post-body">
+            <p>${safe(d.isi)}</p>
+          </div>
 
-        <div class="actions">
-          <button class="like-btn" data-id="${d.id}">❤️ 0</button>
-          <button disabled class="comment-btn">💬 0</button>
-        </div>
+          <div class="actions">
+            <button class="like-btn" data-id="${d.id}">❤️ ${d.likes || 0}</button>
+            <button disabled class="comment-btn">💬 ${d.comments || 0}</button>
+          </div>
 
-        <div class="comments" id="comments-${d.id}"></div>
-        <div class="comment-box">
-          <textarea class="comment-input" id="input-${d.id}" placeholder="Tulis komentar..."></textarea>
-          <button class="comment-send" data-id="${d.id}">Kirim</button>
-        </div>
-      `;
+          <div class="comments" id="comments-${d.id}"></div>
+          <div class="comment-box">
+            <textarea class="comment-input" id="input-${d.id}" placeholder="Tulis komentar..."></textarea>
+            <button class="comment-send" data-id="${d.id}">Kirim</button>
+          </div>
+        `;
 
-      feed.appendChild(card);
+        feed.appendChild(card);
 
-      listenLikeRealtime(d.id, card);
-      listenCommentsRealtime(d.id, card);
-      loadLimitedComments(d.id);
+        listenLikeRealtime(d.id, card);
+        listenCommentsRealtime(d.id, card);
+        loadLimitedComments(d.id);
+      }
+
+      if (change.type === "modified") {
+        const card = document.getElementById(`post-${d.id}`);
+        if (!card) return;
+        // Update likes & comments tanpa re-render seluruh feed
+        const likeBtn = card.querySelector(".like-btn");
+        const commentBtn = card.querySelector(".comment-btn");
+        if (likeBtn) likeBtn.textContent = `❤️ ${d.likes || 0}`;
+        if (commentBtn) commentBtn.textContent = `💬 ${d.comments || 0}`;
+      }
+
+      if (change.type === "removed") {
+        const card = document.getElementById(`post-${d.id}`);
+        if (card) card.remove();
+      }
     });
   });
 }
@@ -94,8 +115,7 @@ function listenLikeRealtime(id, card) {
     const likes = snap.data().likes || 0;
     const btn = card.querySelector(".like-btn");
     btn.textContent = `❤️ ${likes}`;
-    
-    // Mark red if already liked
+
     let liked = JSON.parse(localStorage.getItem("likedPosts") || "[]");
     if (liked.includes(id)) btn.style.color = "red";
   });
@@ -109,7 +129,7 @@ document.addEventListener("click", async (e) => {
   const btn = e.target;
 
   let liked = JSON.parse(localStorage.getItem("likedPosts") || "[]");
-  if (liked.includes(id)) return; // ❌ Sudah like, stop
+  if (liked.includes(id)) return;
 
   liked.push(id);
   localStorage.setItem("likedPosts", JSON.stringify(liked));
@@ -120,7 +140,7 @@ document.addEventListener("click", async (e) => {
 
   await updateDoc(doc(db, "curhatan", id), {
     likes: increment(1)
-    // ✅ Tidak update lastActive → Tidak naik feed
+    // Tidak update lastActive → Tidak naik feed
   });
 });
 
@@ -132,7 +152,8 @@ function listenCommentsRealtime(id, card) {
   onSnapshot(ref, (snap) => {
     if (!snap.exists()) return;
     const comments = snap.data().comments || 0;
-    card.querySelector(".comment-btn").textContent = `💬 ${comments}`;
+    const btn = card.querySelector(".comment-btn");
+    if (btn) btn.textContent = `💬 ${comments}`;
   });
 }
 
@@ -152,7 +173,6 @@ function loadLimitedComments(id) {
       box.appendChild(el);
     });
 
-    // ✅ Jika komentar lebih dari 2 → tampilkan tombol lihat semua
     if (snap.size === 2) {
       const btn = document.createElement("button");
       btn.className = "lihat-semua";
@@ -186,7 +206,9 @@ function loadAllComments(id) {
   });
 }
 
-// ✅ Komentar naikkan posting
+// ============================
+// ✍️ KOMENTAR KIRIM
+// ============================
 document.addEventListener("click", async (e) => {
   if (!e.target.classList.contains("comment-send")) return;
 
@@ -203,11 +225,11 @@ document.addEventListener("click", async (e) => {
 
   await updateDoc(doc(db, "curhatan", id), {
     comments: increment(1),
-    lastActive: new Date().toISOString() // ✅ Hanya komentar menaikkan posting
+    lastActive: new Date().toISOString() // Komentar menaikkan posting
   });
 
   input.value = "";
 });
 
-// Start Feed
+// 🚀 Start Feed
 loadFeed();
