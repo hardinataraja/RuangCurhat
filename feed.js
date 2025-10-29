@@ -1,17 +1,19 @@
-// === Import Firebase (versi modular) ===
+// === Import Firebase ===
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import {
   getFirestore,
   collection,
-  getDocs,
   addDoc,
   query,
   orderBy,
   limit,
-  onSnapshot
+  onSnapshot,
+  doc,
+  updateDoc,
+  increment
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-// === Firebase Config RuangCurhat ===
+// === Firebase Config ===
 const firebaseConfig = {
   apiKey: "AIzaSyBIdM2v8g49FQPFckd7vtP_fx0JnXjdxJQ",
   authDomain: "curhat-online-56d74.firebaseapp.com",
@@ -22,46 +24,30 @@ const firebaseConfig = {
   measurementId: "G-L9KP05K69F"
 };
 
-// === Init Firebase ===
+// Init Firebase
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
-// === Sanitize teks (hindari XSS) ===
+// Safe text
 function safe(t) {
   const d = document.createElement("div");
   d.textContent = t;
   return d.innerHTML;
 }
 
-// === Load Feed Curhatan ===
-async function loadFeed() {
+// ============================
+// 🔥 REALTIME FEED
+// ============================
+function loadFeed() {
   const feed = document.getElementById("feed");
-  feed.innerHTML = "<p style='text-align:center;color:gray;'>⏳ Memuat curhatan...</p>";
+  feed.innerHTML = "<p style='text-align:center;color:gray;'>⏳ Memuat...</p>";
 
-  try {
-    const q = query(collection(db, "curhatan"));
-    const snapshot = await getDocs(q);
+  const q = query(collection(db, "curhatan"), orderBy("lastActive", "desc"));
 
-    if (snapshot.empty) {
-      feed.innerHTML = "<p style='text-align:center;color:gray;'>Belum ada curhatan.</p>";
-      return;
-    }
-
-    const data = [];
-    snapshot.forEach((doc) => data.push({ id: doc.id, ...doc.data() }));
-    data.sort((a, b) => new Date(b.waktu) - new Date(a.waktu));
-
+  onSnapshot(q, (snapshot) => {
     feed.innerHTML = "";
-
-    data.forEach((d) => {
-      const waktu = d.waktu
-        ? new Date(d.waktu).toLocaleString("id-ID", {
-            hour: "2-digit",
-            minute: "2-digit",
-            day: "2-digit",
-            month: "short",
-          })
-        : "";
+    snapshot.forEach((docSnap) => {
+      const d = { id: docSnap.id, ...docSnap.data() };
 
       const card = document.createElement("div");
       card.className = "post";
@@ -72,120 +58,156 @@ async function loadFeed() {
             <strong>${safe(d.nama || "Anonim")}</strong> · ${safe(d.kategori || "-")}
           </div>
         </div>
+
         <div class="post-body">
-          <p>${safe(d.isi || "(tanpa isi)")}</p>
+          <p>${safe(d.isi)}</p>
         </div>
+
         <div class="actions">
-          <button disabled>❤️ ${d.likes || 0}</button>
-          <button disabled>💬 ${d.comments || 0}</button>
-          <small style="color:var(--muted);font-size:12px;">${waktu}</small>
+          <button class="like-btn" data-id="${d.id}">❤️ 0</button>
+          <button disabled class="comment-btn">💬 0</button>
         </div>
+
         <div class="comments" id="comments-${d.id}"></div>
         <div class="comment-box">
           <textarea class="comment-input" id="input-${d.id}" placeholder="Tulis komentar..."></textarea>
           <button class="comment-send" data-id="${d.id}">Kirim</button>
         </div>
       `;
+
       feed.appendChild(card);
 
-      // tampilkan komentar terbatas
+      listenLikeRealtime(d.id, card);
+      listenCommentsRealtime(d.id, card);
       loadLimitedComments(d.id);
     });
-  } catch (e) {
-    feed.innerHTML = `<p style='color:red;text-align:center;'>Gagal memuat data: ${e.message}</p>`;
-  }
+  });
 }
 
-// === Load 2 komentar terbaru ===
+// ============================
+// ❤️ LIKE REALTIME
+// ============================
+function listenLikeRealtime(id, card) {
+  const ref = doc(db, "curhatan", id);
+  onSnapshot(ref, (snap) => {
+    if (!snap.exists()) return;
+    const likes = snap.data().likes || 0;
+    const btn = card.querySelector(".like-btn");
+    btn.textContent = `❤️ ${likes}`;
+    
+    // Mark red if already liked
+    let liked = JSON.parse(localStorage.getItem("likedPosts") || "[]");
+    if (liked.includes(id)) btn.style.color = "red";
+  });
+}
+
+// ✅ ANTI-SPAM LIKE
+document.addEventListener("click", async (e) => {
+  if (!e.target.classList.contains("like-btn")) return;
+
+  const id = e.target.dataset.id;
+  const btn = e.target;
+
+  let liked = JSON.parse(localStorage.getItem("likedPosts") || "[]");
+  if (liked.includes(id)) return; // ❌ Sudah like, stop
+
+  liked.push(id);
+  localStorage.setItem("likedPosts", JSON.stringify(liked));
+
+  const old = parseInt(btn.textContent.split(" ")[1]) || 0;
+  btn.textContent = `❤️ ${old + 1}`;
+  btn.style.color = "red";
+
+  await updateDoc(doc(db, "curhatan", id), {
+    likes: increment(1)
+    // ✅ Tidak update lastActive → Tidak naik feed
+  });
+});
+
+// ============================
+// 💬 COMMENT REALTIME
+// ============================
+function listenCommentsRealtime(id, card) {
+  const ref = doc(db, "curhatan", id);
+  onSnapshot(ref, (snap) => {
+    if (!snap.exists()) return;
+    const comments = snap.data().comments || 0;
+    card.querySelector(".comment-btn").textContent = `💬 ${comments}`;
+  });
+}
+
 function loadLimitedComments(id) {
   const ref = collection(db, `curhatan/${id}/comments`);
   const q = query(ref, orderBy("waktu", "desc"), limit(2));
   const box = document.getElementById(`comments-${id}`);
-  if (!box) return;
 
-  onSnapshot(q, (snapshot) => {
+  onSnapshot(q, (snap) => {
     box.innerHTML = "";
-    const comments = [];
-    snapshot.forEach((d) => comments.push(d.data()));
-    comments.reverse().forEach((c) => {
+    const arr = [];
+    snap.forEach((d) => arr.push(d.data()));
+    arr.reverse().forEach((c) => {
       const el = document.createElement("div");
       el.className = "comment-item";
-      el.innerHTML = `<strong>${safe(c.nama || "Anonim")}</strong> <span class="time">${new Date(
-        c.waktu || Date.now()
-      ).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })}</span><br>${safe(c.isi)}`;
+      el.innerHTML = `<strong>${safe(c.nama || "Anonim")}</strong><br>${safe(c.isi)}`;
       box.appendChild(el);
     });
 
-    if (snapshot.size === 2) {
+    // ✅ Jika komentar lebih dari 2 → tampilkan tombol lihat semua
+    if (snap.size === 2) {
       const btn = document.createElement("button");
       btn.className = "lihat-semua";
       btn.textContent = "Lihat semua komentar";
-      btn.addEventListener("click", () => loadAllComments(id));
+      btn.onclick = () => loadAllComments(id);
       box.appendChild(btn);
     }
   });
 }
 
-// === Load semua komentar ===
 function loadAllComments(id) {
   const ref = collection(db, `curhatan/${id}/comments`);
   const q = query(ref, orderBy("waktu", "asc"));
   const box = document.getElementById(`comments-${id}`);
-  if (!box) return;
 
-  onSnapshot(q, (snapshot) => {
+  onSnapshot(q, (snap) => {
     box.innerHTML = "";
-    snapshot.forEach((d) => {
+    snap.forEach((d) => {
       const c = d.data();
       const el = document.createElement("div");
       el.className = "comment-item";
-      el.innerHTML = `<strong>${safe(c.nama || "Anonim")}</strong> <span class="time">${new Date(
-        c.waktu || Date.now()
-      ).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })}</span><br>${safe(c.isi)}`;
+      el.innerHTML = `<strong>${safe(c.nama || "Anonim")}</strong><br>${safe(c.isi)}`;
       box.appendChild(el);
     });
 
     const btn = document.createElement("button");
     btn.className = "lihat-semua";
     btn.textContent = "Tutup komentar";
-    btn.addEventListener("click", () => loadLimitedComments(id));
+    btn.onclick = () => loadLimitedComments(id);
     box.appendChild(btn);
   });
 }
 
-// === Kirim komentar ===
+// ✅ Komentar naikkan posting
 document.addEventListener("click", async (e) => {
-  if (e.target.classList.contains("comment-send")) {
-    const id = e.target.dataset.id;
-    const input = document.getElementById(`input-${id}`);
-    const isi = input.value.trim();
-    if (!isi) return;
+  if (!e.target.classList.contains("comment-send")) return;
 
-    try {
-      await addDoc(collection(db, `curhatan/${id}/comments`), {
-        isi,
-        nama: "Anonim",
-        waktu: new Date().toISOString(),
-      });
-      input.value = "";
-      Toastify({
-        text: "Komentar terkirim!",
-        duration: 2000,
-        gravity: "bottom",
-        position: "center",
-        backgroundColor: "#4CAF50",
-      }).showToast();
-    } catch (err) {
-      Toastify({
-        text: "Gagal mengirim komentar!",
-        duration: 2000,
-        gravity: "bottom",
-        position: "center",
-        backgroundColor: "#E53935",
-      }).showToast();
-    }
-  }
+  const id = e.target.dataset.id;
+  const input = document.getElementById(`input-${id}`);
+  const isi = input.value.trim();
+  if (!isi) return;
+
+  await addDoc(collection(db, `curhatan/${id}/comments`), {
+    isi,
+    nama: "Anonim",
+    waktu: new Date().toISOString()
+  });
+
+  await updateDoc(doc(db, "curhatan", id), {
+    comments: increment(1),
+    lastActive: new Date().toISOString() // ✅ Hanya komentar menaikkan posting
+  });
+
+  input.value = "";
 });
 
-// === Jalankan ===
+// Start Feed
 loadFeed();
