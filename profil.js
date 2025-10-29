@@ -1,4 +1,5 @@
-// === profil.js ===
+// profil.js (robust version)
+// Import modular Firebase
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
 import {
   getFirestore,
@@ -8,7 +9,7 @@ import {
   doc
 } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 
-// === Konfigurasi Firebase RuangCurhat ===
+// Firebase config (RuangCurhat)
 const firebaseConfig = {
   apiKey: "AIzaSyBIdM2v8g49FQPFckd7vtP_fx0JnXjdxJQ",
   authDomain: "curhat-online-56d74.firebaseapp.com",
@@ -22,93 +23,156 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
-// === Fungsi toast ===
-function showToast(text, color = "linear-gradient(90deg,#7b5be4,#a78bfa)") {
-  Toastify({
-    text,
-    duration: 3000,
-    gravity: "top",
-    position: "center",
-    style: { background: color, borderRadius: "10px" },
-  }).showToast();
-}
-
-// === Daftar emoji pilihan ===
-const emojis = ["🐨","🦊","🐼","🐸","🐧","🐰","🐻","🐱","🐶","🦁","🐹","🐯","🐮","🐷","🐤","🦄","🐙","🐢","🐥","🐿️"];
-
-const emojiGrid = document.getElementById("emojiGrid");
-let selectedEmoji = null;
-
-// tampilkan pilihan emoji
-emojis.forEach((em, i) => {
-  const div = document.createElement("div");
-  div.className = `emoji-item pastel-${(i % 8) + 1}`;
-  div.textContent = em;
-  div.addEventListener("click", () => {
-    document.querySelectorAll(".emoji-item").forEach(e => e.classList.remove("selected"));
-    div.classList.add("selected");
-    selectedEmoji = em;
-  });
-  emojiGrid.appendChild(div);
-});
-
-// === Fungsi buat profil anonim ===
-async function buatProfil(nama, emoji) {
-  const id = Date.now().toString(36);
-  const profile = { id, nama, emoji };
-  localStorage.setItem("profile", JSON.stringify(profile));
-
-  await setDoc(doc(db, "users", id), {
-    nama,
-    emoji,
-    lastActive: new Date().toISOString(),
-  });
-
-  return profile;
-}
-
-// === Kirim curhatan pending jika ada ===
-async function kirimPendingJikaAda(profile) {
-  const pending = JSON.parse(sessionStorage.getItem("pendingCurhat") || "null");
-  if (!pending) return;
-
+// fallback toast
+function toast(text, opts = {}) {
   try {
-    const { kategori, isi, waktu } = pending;
-    const docRef = await addDoc(collection(db, "curhatan"), {
-      nama: profile.nama || "Anonim",
-      avatar: profile.emoji || "💬",
-      kategori,
-      isi,
-      likes: 0,
-      comments: 0,
-      waktu,
-      lastActive: new Date().toISOString(),
-    });
-
-    // simpan ke curhatanSaya di localStorage
-    const saved = JSON.parse(localStorage.getItem("curhatanSaya") || "[]");
-    saved.unshift(docRef.id);
-    localStorage.setItem("curhatanSaya", JSON.stringify(saved));
-
-    sessionStorage.removeItem("pendingCurhat");
-    showToast("Curhatanmu berhasil dikirim 💌");
-    setTimeout(() => (window.location.href = "feed.html"), 1500);
-  } catch (err) {
-    console.error("Gagal kirim curhatan pending:", err);
-    showToast("Gagal mengirim curhatan 😢", "#f87171");
+    // Toastify global is loaded via CDN in profil.html
+    Toastify({
+      text,
+      duration: opts.duration ?? 3000,
+      gravity: opts.gravity ?? "top",
+      position: opts.position ?? "center",
+      style: opts.style ?? { background: "linear-gradient(90deg,#7b5be4,#a78bfa)", borderRadius: "10px" }
+    }).showToast();
+  } catch (e) {
+    // fallback simple alert if Toastify missing
+    console.log("Toast:", text);
+    if (opts.fallbackAlert !== false) alert(text);
   }
 }
 
-// === Saat klik tombol Simpan Profil ===
-document.getElementById("saveProfile").addEventListener("click", async () => {
-  const nama = document.getElementById("namaSamaran").value.trim() || "Anonim";
-  const emoji = selectedEmoji || "💬";
+// helper safe text
+function safeText(t) {
+  return typeof t === "string" ? t : "";
+}
 
-  const profile = await buatProfil(nama, emoji);
-  showToast("Profil anonim disimpan 🎭");
-  await kirimPendingJikaAda(profile);
+// wrap everything after DOM ready
+document.addEventListener("DOMContentLoaded", () => {
+  try {
+    const emojis = ["🌻","🧸","☁️","🦋","💫","🍃","💖","🌷","🌈","🐚","🫶","🌼","🪷","🐰","🕊️","⭐","🐨","🍀"];
+    const grid = document.getElementById("emojiGrid");
+    const inputNama = document.getElementById("namaSamaran");
+    const saveBtn = document.getElementById("saveProfile");
+
+    if (!grid || !inputNama || !saveBtn) {
+      console.error("Profil: elemen DOM tidak lengkap (emojiGrid / namaSamaran / saveProfile).");
+      toast("Terjadi kesalahan: elemen profil tidak ditemukan.", { fallbackAlert: true });
+      return;
+    }
+
+    let selectedEmoji = null;
+
+    // build emoji grid (idempotent: clear first)
+    grid.innerHTML = "";
+    emojis.forEach((emoji, i) => {
+      const div = document.createElement("div");
+      div.className = `emoji-item pastel-${(i % 8) + 1}`;
+      div.textContent = emoji;
+      div.tabIndex = 0;
+      div.addEventListener("click", () => {
+        document.querySelectorAll(".emoji-item").forEach(e => e.classList.remove("selected"));
+        div.classList.add("selected");
+        selectedEmoji = emoji;
+      });
+      div.addEventListener("keydown", (ev) => {
+        if (ev.key === "Enter" || ev.key === " ") {
+          ev.preventDefault();
+          div.click();
+        }
+      });
+      grid.appendChild(div);
+    });
+
+    // Load saved profile if exists
+    try {
+      const savedProfile = JSON.parse(localStorage.getItem("profile") || "null");
+      if (savedProfile) {
+        inputNama.value = savedProfile.nama || "";
+        selectedEmoji = savedProfile.emoji || null;
+        if (selectedEmoji) {
+          const found = [...document.querySelectorAll(".emoji-item")].find(e => e.textContent === selectedEmoji);
+          if (found) found.classList.add("selected");
+        }
+      }
+    } catch (e) {
+      console.warn("Gagal baca localStorage profile:", e);
+    }
+
+    // Robust click handler
+    saveBtn.addEventListener("click", async (ev) => {
+      ev.preventDefault();
+      try {
+        if (!selectedEmoji) {
+          toast("Pilih emoji avatar dulu ya 🌸", { style: { background: "linear-gradient(90deg,#f9a8d4,#fbcfe8)" } });
+          return;
+        }
+
+        const namaRaw = inputNama.value || "";
+        const nama = namaRaw.trim() || "Anonim";
+        const anonId = "anon-" + Math.random().toString(36).substring(2, 10);
+        const profile = { id: anonId, nama, emoji: selectedEmoji };
+        // save locally
+        localStorage.setItem("profile", JSON.stringify(profile));
+
+        // optional: save user doc in 'users' collection (helps other features)
+        try {
+          await setDoc(doc(db, "users", anonId), {
+            id: anonId,
+            nama,
+            emoji: selectedEmoji,
+            lastActive: new Date().toISOString()
+          });
+        } catch (e) {
+          console.warn("Gagal simpan users doc:", e);
+          // non-fatal
+        }
+
+        toast("Profil anonim disimpan 🎭");
+
+        // check pending curhat
+        const pending = JSON.parse(sessionStorage.getItem("pendingCurhat") || "null");
+        if (pending) {
+          try {
+            const docRef = await addDoc(collection(db, "curhatan"), {
+              nama: nama,
+              kategori: pending.kategori,
+              isi: pending.isi,
+              avatar: selectedEmoji,
+              likes: 0,
+              comments: 0,
+              waktu: pending.waktu,
+              lastActive: new Date().toISOString()
+            });
+
+            // save doc id to curhatanSaya
+            const saved = JSON.parse(localStorage.getItem("curhatanSaya") || "[]");
+            saved.unshift(docRef.id);
+            localStorage.setItem("curhatanSaya", JSON.stringify(saved));
+
+            sessionStorage.removeItem("pendingCurhat");
+            toast("Curhatanmu berhasil dikirim 💌");
+            setTimeout(() => (window.location.href = "feed.html"), 900);
+            return;
+          } catch (err) {
+            console.error("Gagal kirim curhat tertunda:", err);
+            toast("Profil tersimpan, tapi curhatan belum terkirim 😢", { style: { background: "#f87171" } });
+            setTimeout(() => (window.location.href = "feed.html"), 900);
+            return;
+          }
+        }
+
+        // no pending => go back to index
+        setTimeout(() => (window.location.href = "index.html"), 700);
+      } catch (err) {
+        console.error("Error saat klik simpan profil:", err);
+        toast("Terjadi kesalahan internal. Coba lagi.", { style: { background: "#f87171" } });
+      }
+    });
+
+    // Expose for debug (optional)
+    window.__profil_debug_ready = true;
+  } catch (outerErr) {
+    console.error("Profil init error:", outerErr);
+    alert("Terjadi kesalahan saat memuat profil. Cek console.");
+  }
 });
-
-// === Jika user sudah punya profil tapi masih ada curhatan pending ===
-const existing = JSON.parse(localStorage.getItem("profile") || "null");
-if (existing) kirimPendingJikaAda(existing);
