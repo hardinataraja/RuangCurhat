@@ -6,7 +6,44 @@
   <title>RuangCurhat | Curhat Anonim & Dukungan Hangat</title>
 
   <link rel="stylesheet" href="style.css" />
+ 
+  <!-- 🌈 Theme & Manifest -->
+  <meta name="theme-color" content="#6C63FF" />
+  <link rel="manifest" href="/manifest.json" />
 
+  <!-- 🧩 PWA Meta (Android + iOS) -->
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="RuangCurhat" />
+  <link rel="apple-touch-icon" href="/icon-192.png" />
+  <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png" />
+  <link rel="icon" type="image/png" sizes="512x512" href="/icon-512.png" />
+
+  <!-- 🖋️ Deskripsi & Warna -->
+  <meta name="description" content="RuangCurhat - tempat curhat online anonim dan aman, berbagi perasaan kapan pun dengan dukungan hangat." />
+  <meta name="application-name" content="RuangCurhat" />
+
+  <!-- 📱 Splash Screen iOS -->
+  <link rel="apple-touch-startup-image" href="/icon-512.png" />
+
+  <!-- 🧷 CSS -->
+  <link rel="stylesheet" href="style.css" />
+
+  <!-- 🧃 Toastify -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css" />
+  <script src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
+
+  <!-- ✨ Animasi transisi -->
+  <style>
+    body.page-enter { transform: translateX(20px); opacity: 0; transition: transform .32s ease, opacity .32s ease; }
+    body.page-enter.page-ready { transform: translateX(0); opacity: 1; }
+    body.page-exit { transition: transform .32s ease, opacity .32s ease; }
+    body.page-exit.slide-left { transform: translateX(-24px); opacity: 0; }
+    body.page-exit.slide-right { transform: translateX(24px); opacity: 0; }
+    .page-wrapper { min-height: 60vh; }
+  </style>
+</head>
   <!-- Toastify -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css">
   <script src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
@@ -122,5 +159,14 @@
 
   <!-- === APP LOGIC === -->
   <script type="module" src="script.js"></script>
+  <script>
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", () => {
+      navigator.serviceWorker.register("/sw.js")
+        .then(reg => console.log("Service Worker terdaftar:", reg.scope))
+        .catch(err => console.log("Pendaftaran SW gagal:", err));
+    });
+  }
+</script>
 </body>
 </html>
