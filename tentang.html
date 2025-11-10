@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Tentang | RuangCurhat</title>
+
+  <meta name="theme-color" content="#6C63FF" />
+  <link rel="manifest" href="/manifest.json" />
+  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css" />
+  <script src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
+</head>
+
+<body>
+
+  <!-- === TOP BAR === -->
+  <header class="top-bar">
+    <div class="logo">
+      <div class="dot">RC</div>
+      <span>Tentang</span>
+    </div>
+    <button class="theme-toggle" title="Ganti Mode">🌙</button>
+  </header>
+
+  <div class="page-wrapper" style="padding: 30px 5%; max-width: 800px; margin:auto;">
+
+    <section class="hero" style="margin-top:0;">
+      <h1 style="font-size:1.8rem;">Tentang RuangCurhat</h1>
+      <p style="max-width:700px;">
+        RuangCurhat adalah platform curhat anonim yang dibuat untuk memberikan ruang aman, nyaman,
+        dan bebas penghakiman bagi siapa pun yang ingin bercerita. Kamu bisa mencurahkan isi hati,
+        mendapatkan dukungan, dan membagikan pengalaman tanpa mengungkap identitasmu.
+      </p>
+    </section>
+
+    <hr style="margin:30px 0; border:0; border-top:1px solid #e5e7eb;" />
+
+    <!-- FAQ SECTION -->
+    <section>
+      <h2 style="font-size:1.4rem; margin-bottom:14px;">Pertanyaan yang Sering Diajukan (FAQ)</h2>
+
+      <div class="faq-item" style="margin-bottom:20px;">
+        <h3 style="font-size:1rem; font-weight:600;">1. Apakah curhatan saya benar-benar anonim?</h3>
+        <p style="color:var(--muted);">
+          Ya. RuangCurhat tidak meminta identitas asli dan tidak menyimpan data pribadi apa pun.
+        </p>
+      </div>
+
+      <div class="faq-item" style="margin-bottom:20px;">
+        <h3 style="font-size:1rem; font-weight:600;">2. Apakah curhatan saya bisa dilihat orang lain?</h3>
+        <p style="color:var(--muted);">
+          Curhatanmu akan tampil di feed publik secara anonim. Hanya nama samaran yang muncul.
+        </p>
+      </div>
+
+      <div class="faq-item" style="margin-bottom:20px;">
+        <h3 style="font-size:1rem; font-weight:600;">3. Apakah saya bisa menghapus curhatan?</h3>
+        <p style="color:var(--muted);">
+          Bisa. Masuk ke halaman "Curhatku", lalu hapus curhatan yang kamu pilih.
+        </p>
+      </div>
+
+      <div class="faq-item" style="margin-bottom:20px;">
+        <h3 style="font-size:1rem; font-weight:600;">4. Apakah platform ini gratis?</h3>
+        <p style="color:var(--muted);">
+          Ya. Semua fitur di RuangCurhat dapat digunakan secara gratis.
+        </p>
+      </div>
+
+      <div class="faq-item" style="margin-bottom:20px;">
+        <h3 style="font-size:1rem; font-weight:600;">5. Apakah ada admin atau moderator?</h3>
+        <p style="color:var(--muted);">
+          Ada. Tim admin memantau laporan untuk menjaga keamanan serta kenyamanan pengguna.
+        </p>
+      </div>
+
+    </section>
+
+    <footer style="margin-top:40px; text-align:center; color:var(--muted);">
+      RuangCurhat © 2025
+    </footer>
+
+  </div>
+
+  <!-- NAVIGATION BOTTOM -->
+  <nav class="bottom-nav">
+    <a href="feed.html">💬<span>Feed</span></a>
+    <a href="mycurhat.html">📜<span>Curhatku</span></a>
+    <a href="index.html#formCurhat" class="add-btn">➕</a>
+    <a href="profil.html">⚙️<span>Profil</span></a>
+    <a href="tentang.html" class="active">ℹ️<span>Tentang</span></a>
+  </nav>
+
+  <script>
+    // === Dark mode toggle ===
+    const toggle = document.querySelector('.theme-toggle');
+    const savedTheme = localStorage.getItem('theme');
+    if (savedTheme === 'dark') {
+      document.body.classList.add('dark');
+      toggle.textContent = '☀️';
+    }
+    toggle.addEventListener('click', () => {
+      document.body.classList.toggle('dark');
+      const dark = document.body.classList.contains('dark');
+      toggle.textContent = dark ? '☀️' : '🌙';
+      localStorage.setItem('theme', dark ? 'dark' : 'light');
+    });
+  </script>
+
+</body>
+</html>
